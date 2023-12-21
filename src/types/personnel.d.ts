@@ -1,5 +1,6 @@
 export type PersonnelType = {
   id: string;
+  stt: number;
   name: string;
   position: string;
   department: string;
@@ -18,4 +19,7 @@ export type PersonnelCurrentType = Pick<
   "id" | "name" | "email" | "roles"
 >;
 
-export type PersonnelPostType = Omit<PersonnelType, "id" | "company" | "roles">;
+export type PersonnelPostType = Omit<
+  PersonnelType,
+  "id" | "stt" | "company" | "roles"
+>;

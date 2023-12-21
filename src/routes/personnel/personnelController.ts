@@ -145,6 +145,12 @@ export default class PersonnelController {
       updatedAt: momentNowTS(),
     };
 
+    const stts = await personnelCollection
+      .find<{ stt: number }>({}, { projection: { stt: 1 } })
+      .sort({ stt: -1 })
+      .limit(1)
+      .toArray();
+
     const { uid } = await authFB.createUser({
       email: obj.email,
       password: "123456",
@@ -156,6 +162,7 @@ export default class PersonnelController {
     const { insertedId } = await personnelCollection.insertOne({
       ...obj,
       roles: [],
+      stt: stts.length == 0 ? 10 : stts[0].stt + 1,
       _id: new ObjectId(uid),
     });
 
