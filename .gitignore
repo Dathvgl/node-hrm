@@ -2,3 +2,4 @@ node_modules
 *.local
 pnpm-lock.yaml
 dist
+.env

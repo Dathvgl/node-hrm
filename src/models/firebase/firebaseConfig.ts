@@ -7,7 +7,7 @@ import config from "./firebaseJson.json";
 const app = admin.initializeApp({
   credential: cert({
     clientEmail: envs.FIREBASE_CLIENT_EMAIL,
-    privateKey: envs.FIREBASE_PRIVATE_KEY,
+    privateKey: envs.FIREBASE_PRIVATE_KEY?.replaceAll(/\\n/gm, "\n"),
     projectId: envs.FIREBASE_PROJECT_ID,
   }),
   ...config,

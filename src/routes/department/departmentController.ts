@@ -2,24 +2,65 @@ import { Request, Response } from "express";
 import { CustomError } from "models/errror";
 import { departmentCollection, personnelCollection } from "models/mongo";
 import { ObjectId } from "mongodb";
+import { ListResult } from "types/base";
 import { CompanyPostType, CompanyType } from "types/company";
+import { DepartmentAllGetType, DepartmentsGetType } from "types/department";
 import { BaseMongo } from "types/mongo";
 import { momentNowTS } from "utils/date";
 
 export default class DepartmentController {
-  async getDepartments(req: Request, res: Response) {
-    const data = await departmentCollection.find().sort({ name: 1 }).toArray();
+  async getDepartmentAll(req: Request, res: Response) {
+    const data = await departmentCollection
+      .aggregate<DepartmentAllGetType>([
+        { $sort: { name: 1 } },
+        { $addFields: { id: { $toObjectId: "$_id" } } },
+        { $project: { id: 1, stt: 1, name: 1 } },
+      ])
+      .toArray();
+
     res.json(data);
   }
 
-  async postCompany(req: Request, res: Response) {
+  async getDepartments(req: Request, res: Response) {
+    const query = req.query as { page?: string; limit?: string };
+    const page: number = Number.parseInt(query.page ?? "1");
+    const limit: number = Number.parseInt(query.limit ?? "10");
+
+    const data = await departmentCollection
+      .aggregate<ListResult<DepartmentsGetType>>([
+        {
+          $facet: {
+            data: [
+              { $skip: (page - 1) * limit },
+              { $limit: limit },
+              { $sort: { createdAt: -1 } },
+              { $addFields: { id: { $toObjectId: "$_id" } } },
+              { $project: { _id: 0 } },
+            ],
+            totalPage: [{ $count: "total" }],
+          },
+        },
+        { $addFields: { currentPage: page } },
+        {
+          $project: {
+            totalAll: {
+              $let: {
+                vars: { props: { $first: "$totalPage" } },
+                in: "$$props.total",
+              },
+            },
+            currentPage: 1,
+            data: 1,
+          },
+        },
+      ])
+      .next();
+
+    res.json(data);
+  }
+
+  async postDepartment(req: Request, res: Response) {
     const body = req.body as CompanyPostType;
-
-    const exist = await departmentCollection.findOne({ code: body.code });
-
-    if (exist) {
-      throw new CustomError("Đã tồn tại mã công ty này", 500);
-    }
 
     const obj = {
       ...body,

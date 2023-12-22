@@ -5,8 +5,12 @@ import DepartmentController from "./departmentController";
 const departmentRouter = Router();
 const departmentController = new DepartmentController();
 
-departmentRouter.post("/", tryCatch(departmentController.getDepartments));
-departmentRouter.post("/", tryCatch(departmentController.postCompany));
-departmentRouter.post("/:id", tryCatch(departmentController.deleteDepartment));
+departmentRouter.get("/", tryCatch(departmentController.getDepartments));
+departmentRouter.get("/all", tryCatch(departmentController.getDepartmentAll));
+departmentRouter.post("/", tryCatch(departmentController.postDepartment));
+departmentRouter.delete(
+  "/:id",
+  tryCatch(departmentController.deleteDepartment)
+);
 
 export default departmentRouter;

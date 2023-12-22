@@ -3,11 +3,15 @@ import { CustomError } from "models/errror";
 import { authFB } from "models/firebase/firebaseConfig";
 import { personnelCollection } from "models/mongo";
 import { ObjectId } from "mongodb";
+import { ListResult } from "types/base";
 import { BaseMongo } from "types/mongo";
 import {
   PersonnelCurrentType,
   PersonnelPostType,
   PersonnelType,
+  PersonnelsGetCompany,
+  PersonnelsGetManagement,
+  PersonnelsGetRoles,
 } from "types/personnel";
 import { momentNowTS } from "utils/date";
 
@@ -32,9 +36,9 @@ export default class PersonnelController {
       if (query.type) {
         switch (query.type) {
           case "company":
-            return [{ $project: { _id: 1, name: 1, email: 1 } }];
+            return [{ $project: { _id: 1, stt: 1, name: 1, email: 1 } }];
           case "role":
-            return [{ $project: { _id: 1, name: 1, roles: 1 } }];
+            return [{ $project: { _id: 1, stt: 1, name: 1, roles: 1 } }];
           case "management":
           default:
             return [{ $project: { roles: 0 } }];
@@ -105,7 +109,13 @@ export default class PersonnelController {
 
     aggregate.unshift({ $sort: { createdAt: -1 } });
 
-    const data = await personnelCollection.aggregate(aggregate).next();
+    const data = await personnelCollection
+      .aggregate<
+        ListResult<
+          PersonnelsGetManagement | PersonnelsGetCompany | PersonnelsGetRoles
+        >
+      >(aggregate)
+      .next();
 
     res.json(data);
   }

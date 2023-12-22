@@ -2,16 +2,63 @@ import { Request, Response } from "express";
 import { CustomError } from "models/errror";
 import { companyCollection, personnelCollection } from "models/mongo";
 import { ObjectId } from "mongodb";
-import { CompanyPostType, CompanyType } from "types/company";
+import { ListResult } from "types/base";
+import {
+  CompaniesGetType,
+  CompanyAllGetType,
+  CompanyPostType,
+  CompanyType,
+} from "types/company";
 import { BaseMongo } from "types/mongo";
 import { momentNowTS } from "utils/date";
 
 export default class CompanyController {
-  async getCompanies(req: Request, res: Response) {
+  async getCompanyAll(req: Request, res: Response) {
     const data = await companyCollection
-      .find()
-      .sort({ createdAt: -1 })
+      .aggregate<CompanyAllGetType>([
+        { $sort: { name: 1 } },
+        { $addFields: { id: { $toObjectId: "$_id" } } },
+        { $project: { id: 1, stt: 1, name: 1 } },
+      ])
       .toArray();
+
+    res.json(data);
+  }
+
+  async getCompanies(req: Request, res: Response) {
+    const query = req.query as { page?: string; limit?: string };
+    const page: number = Number.parseInt(query.page ?? "1");
+    const limit: number = Number.parseInt(query.limit ?? "10");
+
+    const data = await companyCollection
+      .aggregate<ListResult<CompaniesGetType>>([
+        {
+          $facet: {
+            data: [
+              { $skip: (page - 1) * limit },
+              { $limit: limit },
+              { $sort: { createdAt: -1 } },
+              { $addFields: { id: { $toObjectId: "$_id" } } },
+              { $project: { _id: 0 } },
+            ],
+            totalPage: [{ $count: "total" }],
+          },
+        },
+        { $addFields: { currentPage: page } },
+        {
+          $project: {
+            totalAll: {
+              $let: {
+                vars: { props: { $first: "$totalPage" } },
+                in: "$$props.total",
+              },
+            },
+            currentPage: 1,
+            data: 1,
+          },
+        },
+      ])
+      .next();
 
     res.json(data);
   }
@@ -57,7 +104,7 @@ export default class CompanyController {
     } else {
       await personnelCollection.updateMany(
         { company: data._id },
-        { company: "" }
+        { $set: { company: "" } }
       );
 
       res.json({ id: data._id, code: data.code, name: data.name });

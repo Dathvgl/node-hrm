@@ -1,7 +1,7 @@
 import { envs } from "index";
 import { MongoClient } from "mongodb";
 
-const mongoClient = new MongoClient(envs.MONGO_URL);
+const mongoClient = new MongoClient(envs.MONGO_URL ?? "");
 mongoClient.connect().then(() => console.log("MongoDB connect"));
 export const mongoDB = mongoClient.db(envs.MONGO_DB);
 

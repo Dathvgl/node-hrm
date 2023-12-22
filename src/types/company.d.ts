@@ -1,3 +1,5 @@
+import { BaseMongo } from "./mongo";
+
 export type CompanyType = {
   id: string;
   stt: number;
@@ -8,4 +10,6 @@ export type CompanyType = {
   operationYear: string;
 };
 
+export type CompaniesGetType = Omit<BaseMongo, "_id"> & CompanyType;
+export type CompanyAllGetType = Pick<CompanyType, "id" | "stt" | "name">;
 export type CompanyPostType = Omit<CompanyType, "id" | "stt">;
