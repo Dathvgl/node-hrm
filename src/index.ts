@@ -1,13 +1,11 @@
-import { config } from "dotenv";
-config();
-
+import "dotenv/config";
 export const envs = process.env;
 
 import cors from "cors";
 import express, { Application } from "express";
-import ApiRoute from "routes/api";
+// import ApiRoute from "routes/api";
 
-config();
+console.log(envs.MONGO_URL);
 
 const app: Application = express();
 const port: number = Number(process.env.PORT) || 8080;
@@ -22,7 +20,7 @@ app.use(
 
 app.use(express.json());
 
-app.use("/api", ApiRoute);
+// app.use("/api", ApiRoute);
 
 app.get("/", async (req, res) => {
   res.send("Hello from ts");

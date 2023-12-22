@@ -49,6 +49,8 @@ export default class PersonnelController {
             { $skip: (page - 1) * limit },
             { $limit: limit },
             ...handleProject(),
+            { $addFields: { id: { $toObjectId: "$_id" } } },
+            { $project: { _id: 0 } },
           ],
           totalPage: [{ $count: "total" }],
         },
