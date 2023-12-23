@@ -5,7 +5,6 @@ import cors from "cors";
 import express, { Application } from "express";
 import ApiRoute from "routes/api";
 
-
 const app: Application = express();
 const port: number = Number(process.env.PORT) || 8080;
 

@@ -1,11 +1,12 @@
 import { Request, Response } from "express";
 import { CustomError } from "models/errror";
 import { authFB } from "models/firebase/firebaseConfig";
-import { personnelCollection } from "models/mongo";
+import { fieldLookup, personnelCollection } from "models/mongo";
 import { ObjectId } from "mongodb";
 import { ListResult } from "types/base";
 import { BaseMongo } from "types/mongo";
 import {
+  PersonnelAllGetType,
   PersonnelCurrentType,
   PersonnelPostType,
   PersonnelType,
@@ -15,7 +16,37 @@ import {
 } from "types/personnel";
 import { momentNowTS } from "utils/date";
 
+const roleLookup = () => {
+  return [
+    {
+      $lookup: {
+        from: "role",
+        let: { roles: "$roles" },
+        pipeline: [
+          { $match: { $expr: { $in: [{ $toString: "$_id" }, "$$roles"] } } },
+          { $project: { _id: 0, name: 1 } },
+        ],
+        as: "roles",
+      },
+    },
+    { $addFields: { roles: "$roles.name" } },
+  ];
+};
+
 export default class PersonnelController {
+  async getPersonnelAll(req: Request, res: Response) {
+    const data = await personnelCollection
+      .aggregate<PersonnelAllGetType>([
+        { $sort: { name: 1 } },
+        { $addFields: { id: { $toObjectId: "$_id" } } },
+        { $project: { id: 1, stt: 1, name: 1 } },
+      ])
+      .toArray();
+    console.log(data);
+
+    res.json(data);
+  }
+
   async getPersonnels(req: Request, res: Response) {
     const query = req.query as {
       type?: string;
@@ -36,12 +67,31 @@ export default class PersonnelController {
       if (query.type) {
         switch (query.type) {
           case "company":
-            return [{ $project: { _id: 1, stt: 1, name: 1, email: 1 } }];
+            return [
+              { $project: { _id: 1, stt: 1, name: 1, email: 1, company: 1 } },
+            ];
           case "role":
-            return [{ $project: { _id: 1, stt: 1, name: 1, roles: 1 } }];
+            return [
+              { $project: { _id: 1, stt: 1, name: 1, roles: 1 } },
+              ...roleLookup(),
+            ];
+          case "all":
+            return [{ $project: { _id: 1, stt: 1, name: 1 } }];
           case "management":
           default:
-            return [{ $project: { roles: 0 } }];
+            return [
+              { $project: { roles: 0 } },
+              ...fieldLookup({
+                document: "department",
+                inField: "name",
+                project: { $project: { _id: 0, name: 1 } },
+              }),
+              ...fieldLookup({
+                document: "position",
+                inField: "name",
+                project: { $project: { _id: 0, name: 1 } },
+              }),
+            ];
         }
       } else return [{ $project: { roles: 0 } }];
     };
@@ -123,22 +173,19 @@ export default class PersonnelController {
   async getPersonnelCurrent(req: Request, res: Response) {
     const { id } = req.params;
 
-    const data = await personnelCollection.findOne<
-      Omit<PersonnelCurrentType, "id"> & { _id: string }
-    >(
-      {
-        _id: new ObjectId(id),
-      },
-      { projection: { _id: 1, name: 1, email: 1, roles: 1 } }
-    );
+    const data = await personnelCollection
+      .aggregate<PersonnelCurrentType>([
+        { $match: { id } },
+        { $project: { _id: 0, id: 1, name: 1, email: 1, roles: 1 } },
+        ...roleLookup(),
+      ])
+      .toArray();
 
-    if (!data) {
+    if (data.length == 0) {
       throw new CustomError("Không tồn tại người này", 500);
     }
 
-    const { _id, ...rest } = data;
-
-    res.json({ ...rest, id: _id });
+    res.json(data[0]);
   }
 
   async postPersonnel(req: Request, res: Response) {
@@ -166,16 +213,15 @@ export default class PersonnelController {
     const { uid } = await authFB.createUser({
       email: obj.email,
       password: "123456",
-      phoneNumber: obj.phone,
       displayName: obj.name,
       emailVerified: false,
     });
 
     const { insertedId } = await personnelCollection.insertOne({
       ...obj,
+      id: uid,
       roles: [],
       stt: stts.length == 0 ? 10 : stts[0].stt + 1,
-      _id: new ObjectId(uid),
     });
 
     res.json({ ...obj, id: insertedId });
@@ -187,12 +233,12 @@ export default class PersonnelController {
 
     const data = (await personnelCollection.findOneAndUpdate(
       { _id: new ObjectId(id) },
-      { company },
+      { $set: { company } },
       { returnDocument: "after" }
     )) as (BaseMongo & Omit<PersonnelType, "id">) | null;
 
     if (!data) {
-      throw new CustomError("Lỗi update company", 500);
+      throw new CustomError("Lỗi update personnel company", 500);
     } else {
       res.json({ id: data._id, name: data.name, email: data.email, company });
     }
@@ -204,12 +250,12 @@ export default class PersonnelController {
 
     const data = (await personnelCollection.findOneAndUpdate(
       { _id: new ObjectId(id) },
-      { roles },
+      { $set: { roles } },
       { returnDocument: "after" }
     )) as (BaseMongo & Omit<PersonnelType, "id">) | null;
 
     if (!data) {
-      throw new CustomError("Lỗi update company", 500);
+      throw new CustomError("Lỗi update personnel role", 500);
     } else {
       res.json({ id: data._id, name: data.name, roles });
     }
@@ -225,7 +271,7 @@ export default class PersonnelController {
     })) as (BaseMongo & Omit<PersonnelType, "id">) | null;
 
     if (!data) {
-      throw new CustomError("Lỗi update company", 500);
+      throw new CustomError("Lỗi delete personnel", 500);
     } else {
       res.json({ id: data._id, name: data.name, email: data.email });
     }

@@ -100,7 +100,7 @@ export default class CompanyController {
     })) as (BaseMongo & Omit<CompanyType, "id">) | null;
 
     if (!data) {
-      throw new CustomError("Lỗi update company", 500);
+      throw new CustomError("Lỗi delete company", 500);
     } else {
       await personnelCollection.updateMany(
         { company: data._id },
