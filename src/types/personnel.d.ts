@@ -1,3 +1,5 @@
+import { BaseMongo } from "./mongo";
+
 export type PersonnelType = {
   id: string;
   stt: number;

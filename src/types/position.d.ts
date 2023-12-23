@@ -1,3 +1,5 @@
+import { BaseMongo } from "./mongo";
+
 export type PositionType = {
   id: string;
   stt: number;

@@ -1,3 +1,5 @@
+import { BaseMongo } from "./mongo";
+
 export type DepartmentType = {
   id: string;
   stt: number;
