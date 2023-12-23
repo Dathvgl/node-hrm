@@ -38,8 +38,7 @@ export default class PersonnelController {
     const data = await personnelCollection
       .aggregate<PersonnelAllGetType>([
         { $sort: { name: 1 } },
-        { $addFields: { id: { $toObjectId: "$_id" } } },
-        { $project: { id: 1, stt: 1, name: 1 } },
+        { $project: { _id: 0, id: 1, stt: 1, name: 1 } },
       ])
       .toArray();
     console.log(data);
@@ -103,7 +102,6 @@ export default class PersonnelController {
             { $skip: (page - 1) * limit },
             { $limit: limit },
             ...handleProject(),
-            { $addFields: { id: { $toObjectId: "$_id" } } },
             { $project: { _id: 0 } },
           ],
           totalPage: [{ $count: "total" }],

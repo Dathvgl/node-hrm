@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { CustomError } from "models/errror";
-import { vacationCollection } from "models/mongo";
+import { fieldLookup, vacationCollection } from "models/mongo";
 import { ObjectId } from "mongodb";
 import { ListResult } from "types/base";
 import { BaseMongo } from "types/mongo";
@@ -28,6 +28,25 @@ export default class vacationController {
               { $sort: { createdAt: -1 } },
               { $addFields: { id: { $toObjectId: "$_id" } } },
               { $project: { _id: 0 } },
+              {
+                $lookup: {
+                  from: "personnel",
+                  localField: "personnel",
+                  foreignField: "id",
+                  pipeline: [{ $project: { _id: 0, name: 1 } }],
+                  as: "personnel",
+                },
+              },
+              {
+                $addFields: {
+                  personnel: {
+                    $let: {
+                      vars: { props: { $first: "$personnel" } },
+                      in: "$$props.name",
+                    },
+                  },
+                },
+              },
             ],
             totalPage: [{ $count: "total" }],
           },
