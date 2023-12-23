@@ -56,6 +56,7 @@ export default class vacationController {
 
     const obj = {
       ...body,
+      status: "pending",
       createdAt: momentNowTS(),
       updatedAt: momentNowTS(),
     };
