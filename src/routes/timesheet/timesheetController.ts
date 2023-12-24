@@ -1,25 +1,46 @@
 import { Request, Response } from "express";
 import { CustomError } from "models/errror";
-import { vacationCollection } from "models/mongo";
+import { timesheetCollection } from "models/mongo";
 import { ObjectId } from "mongodb";
 import { ListResult } from "types/base";
 import { BaseMongo } from "types/mongo";
 import {
-  VacationPostType,
-  VacationStatusType,
-  VacationType,
-  VacationsGetType,
-} from "types/vacation";
+  TimesheetPostType,
+  TimesheetTimeGetType,
+  TimesheetType,
+  TimesheetsGetType,
+} from "types/timesheet";
 import { momentNowTS } from "utils/date";
 
-export default class VacationController {
-  async getVacations(req: Request, res: Response) {
+export default class TimesheetController {
+  async getTimesheetCurrent(req: Request, res: Response) {
+    const { id } = req.params;
+    const query = req.query as { month?: string; year?: string };
+
+    const today = new Date();
+    const month = Number.parseInt(query.month ?? `${today.getMonth() + 1}`);
+    const year = Number.parseInt(query.year ?? `${today.getFullYear()}`);
+
+    const data = await timesheetCollection
+      .aggregate<TimesheetTimeGetType>([
+        { $match: { personnel: id, month, year } },
+        { $addFields: { id: { $toObjectId: "$_id" } } },
+        { $project: { _id: 0, id: 1, days: 1 } },
+      ])
+      .toArray();
+
+    if (data.length == 0) {
+      res.json(null);
+    } else res.json(data[0]);
+  }
+
+  async getTimesheets(req: Request, res: Response) {
     const query = req.query as { page?: string; limit?: string };
     const page: number = Number.parseInt(query.page ?? "1");
     const limit: number = Number.parseInt(query.limit ?? "10");
 
-    const data = await vacationCollection
-      .aggregate<ListResult<VacationsGetType>>([
+    const data = await timesheetCollection
+      .aggregate<ListResult<TimesheetsGetType>>([
         {
           $facet: {
             data: [
@@ -70,23 +91,22 @@ export default class VacationController {
     res.json(data);
   }
 
-  async postVacation(req: Request, res: Response) {
-    const body = req.body as VacationPostType;
+  async postTimesheet(req: Request, res: Response) {
+    const body = req.body as TimesheetPostType;
 
     const obj = {
       ...body,
-      status: "pending",
       createdAt: momentNowTS(),
       updatedAt: momentNowTS(),
     };
 
-    const stts = await vacationCollection
+    const stts = await timesheetCollection
       .find<{ stt: number }>({}, { projection: { stt: 1 } })
       .sort({ stt: -1 })
       .limit(1)
       .toArray();
 
-    const { insertedId } = await vacationCollection.insertOne({
+    const { insertedId } = await timesheetCollection.insertOne({
       ...obj,
       stt: stts.length == 0 ? 1 : stts[0].stt + 1,
     });
@@ -94,32 +114,27 @@ export default class VacationController {
     res.json({ ...obj, id: insertedId });
   }
 
-  async putVacationStatus(req: Request, res: Response) {
+  async putTimesheetDay(req: Request, res: Response) {
     const { id } = req.params;
-    const { status } = req.query as { status: VacationStatusType };
+    const { days } = req.body as { days: string[] };
 
-    const data = (await vacationCollection.findOneAndUpdate(
+    await timesheetCollection.updateOne(
       { _id: new ObjectId(id) },
-      { $set: { status } },
-      { returnDocument: "after" }
-    )) as (BaseMongo & Omit<VacationType, "id">) | null;
+      { $push: { days: { $each: days } } }
+    );
 
-    if (!data) {
-      throw new CustomError("Lỗi update vacation status", 500);
-    } else {
-      res.json({ id: data._id, status });
-    }
+    res.json({ id });
   }
 
-  async deleteVacation(req: Request, res: Response) {
+  async deleteTimesheet(req: Request, res: Response) {
     const { id } = req.params;
 
-    const data = (await vacationCollection.findOneAndDelete({
+    const data = (await timesheetCollection.findOneAndDelete({
       _id: new ObjectId(id),
-    })) as (BaseMongo & Omit<VacationType, "id">) | null;
+    })) as (BaseMongo & Omit<TimesheetType, "id">) | null;
 
     if (!data) {
-      throw new CustomError("Lỗi delete vacation", 500);
+      throw new CustomError("Lỗi delete timesheet", 500);
     }
 
     res.json({ id: data._id });

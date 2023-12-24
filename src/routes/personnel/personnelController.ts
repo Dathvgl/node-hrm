@@ -8,6 +8,7 @@ import { BaseMongo } from "types/mongo";
 import {
   PersonnelAllGetType,
   PersonnelCurrentType,
+  PersonnelOneType,
   PersonnelPostType,
   PersonnelType,
   PersonnelsGetCompany,
@@ -41,7 +42,6 @@ export default class PersonnelController {
         { $project: { _id: 0, id: 1, stt: 1, name: 1 } },
       ])
       .toArray();
-    console.log(data);
 
     res.json(data);
   }
@@ -139,12 +139,12 @@ export default class PersonnelController {
       },
     ];
 
-    if (query.company && query.company != "all") {
-      aggregate.unshift({ $match: { company: query.company } });
-    }
-
     if (query.name) {
       aggregate.unshift({ $match: { $text: { $search: query.name } } });
+    }
+
+    if (query.company && query.company != "all") {
+      aggregate.unshift({ $match: { company: query.company } });
     }
 
     if (query.phone) {
@@ -181,6 +181,65 @@ export default class PersonnelController {
 
     if (data.length == 0) {
       throw new CustomError("Không tồn tại người này", 500);
+    }
+
+    res.json(data[0]);
+  }
+
+  async getPersonnelOne(req: Request, res: Response) {
+    const { id } = req.params;
+
+    const data = await personnelCollection
+      .aggregate<PersonnelOneType>([
+        { $match: { id } },
+        {
+          $project: {
+            _id: 0,
+            id: 1,
+            name: 1,
+            email: 1,
+            department: 1,
+            position: 1,
+          },
+        },
+        ...fieldLookup({
+          document: "department",
+          as: "salaryType",
+          inField: "salary",
+          project: { $project: { _id: 0, salary: 1 } },
+        }),
+        ...fieldLookup({
+          document: "salary",
+          as: "salaryType",
+          field: "salaryType",
+          inField: "type",
+          project: { $project: { _id: 0, type: 1 } },
+        }),
+        ...fieldLookup({
+          document: "department",
+          inField: "name",
+          project: { $project: { _id: 0, name: 1 } },
+        }),
+        ...fieldLookup({
+          document: "position",
+          as: "salary",
+          inField: "salary",
+          project: { $project: { _id: 0, salary: 1 } },
+        }),
+        ...fieldLookup({
+          document: "position",
+          inField: "name",
+          project: { $project: { _id: 0, name: 1 } },
+        }),
+      ])
+      .toArray();
+
+    if (data.length == 0) {
+      throw new CustomError("Không tồn tại người này", 500);
+    }
+
+    if (data[0].salary == 0) {
+      delete data[0]["salary"];
     }
 
     res.json(data[0]);

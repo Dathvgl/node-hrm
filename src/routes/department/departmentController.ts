@@ -1,11 +1,12 @@
 import { Request, Response } from "express";
 import { CustomError } from "models/errror";
-import { departmentCollection } from "models/mongo";
+import { departmentCollection, fieldLookup } from "models/mongo";
 import { ObjectId } from "mongodb";
 import { ListResult } from "types/base";
 import {
   DepartmentAllGetType,
   DepartmentPostType,
+  DepartmentPutType,
   DepartmentType,
   DepartmentsGetType,
 } from "types/department";
@@ -40,6 +41,11 @@ export default class DepartmentController {
               { $sort: { createdAt: -1 } },
               { $addFields: { id: { $toObjectId: "$_id" } } },
               { $project: { _id: 0 } },
+              ...fieldLookup({
+                document: "salary",
+                inField: "name",
+                project: { $project: { _id: 0, name: 1 } },
+              }),
             ],
             totalPage: [{ $count: "total" }],
           },
@@ -84,6 +90,23 @@ export default class DepartmentController {
     });
 
     res.json({ ...obj, id: insertedId });
+  }
+
+  async putDepartment(req: Request, res: Response) {
+    const { id } = req.params;
+    const body = req.body as DepartmentPutType;
+
+    const obj = {
+      ...body,
+      updatedAt: momentNowTS(),
+    };
+
+    await departmentCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: obj }
+    );
+
+    res.json({ ...body, id });
   }
 
   async deleteDepartment(req: Request, res: Response) {

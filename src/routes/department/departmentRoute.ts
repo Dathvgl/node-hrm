@@ -8,6 +8,7 @@ const departmentController = new DepartmentController();
 departmentRouter.get("/", tryCatch(departmentController.getDepartments));
 departmentRouter.get("/all", tryCatch(departmentController.getDepartmentAll));
 departmentRouter.post("/", tryCatch(departmentController.postDepartment));
+departmentRouter.put("/:id", tryCatch(departmentController.putDepartment));
 departmentRouter.delete(
   "/:id",
   tryCatch(departmentController.deleteDepartment)

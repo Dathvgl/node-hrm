@@ -12,5 +12,5 @@ export type VacationType = {
 export type VacationStatusType = "pending" | "accept" | "refuse";
 
 export type VacationsGetType = Omit<BaseMongo, "_id"> & VacationType;
-export type VacationAllGetType = Pick<VacationType, "id" | "stt" | "name">;
+export type VacationAllGetType = Pick<VacationType, "id" | "stt">;
 export type VacationPostType = Omit<VacationType, "id" | "stt" | "status">;

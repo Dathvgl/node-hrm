@@ -12,6 +12,10 @@ export const vacationCollection = mongoDB.collection("vacation");
 export const salaryCollection = mongoDB.collection("salary");
 export const positionCollection = mongoDB.collection("position");
 export const roleCollection = mongoDB.collection("role");
+export const timesheetCollection = mongoDB.collection("timesheet");
+export const salaryRevenueCollection = mongoDB.collection("salaryRevenue");
+export const salaryContractCollection = mongoDB.collection("salaryContract");
+export const salaryProductCollection = mongoDB.collection("salaryProduct");
 
 type FieldLookup = {
   document: string;

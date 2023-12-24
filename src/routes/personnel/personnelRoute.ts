@@ -7,6 +7,7 @@ const personnelController = new PersonnelController();
 
 personnelRouter.get("/all", tryCatch(personnelController.getPersonnelAll));
 personnelRouter.get("/:id", tryCatch(personnelController.getPersonnelCurrent));
+personnelRouter.get("/one/:id", tryCatch(personnelController.getPersonnelOne));
 personnelRouter.get("/", tryCatch(personnelController.getPersonnels));
 personnelRouter.post("/", tryCatch(personnelController.postPersonnel));
 personnelRouter.put("/company/:id", tryCatch(personnelController.putPersonnelCompany));
