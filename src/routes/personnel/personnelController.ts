@@ -67,19 +67,28 @@ export default class PersonnelController {
         switch (query.type) {
           case "company":
             return [
-              { $project: { _id: 1, stt: 1, name: 1, email: 1, company: 1 } },
+              {
+                $project: {
+                  _id: 0,
+                  id: 1,
+                  stt: 1,
+                  name: 1,
+                  email: 1,
+                  company: 1,
+                },
+              },
             ];
           case "role":
             return [
-              { $project: { _id: 1, stt: 1, name: 1, roles: 1 } },
+              { $project: { _id: 0, id: 1, stt: 1, name: 1, roles: 1 } },
               ...roleLookup(),
             ];
           case "all":
-            return [{ $project: { _id: 1, stt: 1, name: 1 } }];
+            return [{ $project: { _id: 0, id: 1, stt: 1, name: 1 } }];
           case "management":
           default:
             return [
-              { $project: { roles: 0 } },
+              { $project: { _id: 0, roles: 0 } },
               ...fieldLookup({
                 document: "department",
                 inField: "name",
@@ -102,7 +111,6 @@ export default class PersonnelController {
             { $skip: (page - 1) * limit },
             { $limit: limit },
             ...handleProject(),
-            { $project: { _id: 0 } },
           ],
           totalPage: [{ $count: "total" }],
         },
@@ -139,10 +147,6 @@ export default class PersonnelController {
       },
     ];
 
-    if (query.name) {
-      aggregate.unshift({ $match: { $text: { $search: query.name } } });
-    }
-
     if (query.company && query.company != "all") {
       aggregate.unshift({ $match: { company: query.company } });
     }
@@ -156,6 +160,10 @@ export default class PersonnelController {
     }
 
     aggregate.unshift({ $sort: { createdAt: -1 } });
+
+    if (query.name) {
+      aggregate.unshift({ $match: { $text: { $search: query.name } } });
+    }
 
     const data = await personnelCollection
       .aggregate<

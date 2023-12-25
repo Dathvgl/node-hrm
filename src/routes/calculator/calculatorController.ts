@@ -3,49 +3,53 @@ import { fieldLookup, timesheetCollection } from "models/mongo";
 import { ListResult } from "types/base";
 import {
   CalculatorSalaryAggregateType,
-  CalculatorSalaryContract,
-  CalculatorSalaryProduct,
-  CalculatorSalaryRevenue,
   CalculatorSalaryType,
 } from "types/calculator";
-import { SalaryTypeType } from "types/salary";
 import { dayOfWeek } from "utils/date";
 
-type SalaryTypeCalcProps = {
-  type: SalaryTypeType;
-  base: number;
-  days: number[];
+type SalaryTypeCalcProps = CalculatorSalaryAggregateType & {
   month: number;
   year: number;
-  allowance?: number;
-  revenues?: CalculatorSalaryRevenue[];
-  contracts?: CalculatorSalaryContract[];
-  products?: CalculatorSalaryProduct[];
 };
 
 function salaryTypeCalculator({
-  type,
-  base,
-  allowance,
-  days,
-  month,
   year,
+  month,
+  days,
+  salaryType,
   revenues,
   contracts,
   products,
-}: SalaryTypeCalcProps) {
+  salaryAllowance = 0,
+  salaryBase,
+  salaryTypeCalc,
+  ...rest
+}: SalaryTypeCalcProps): CalculatorSalaryType {
   const saturdays = dayOfWeek(year, month, 6);
   const sundays = dayOfWeek(year, month, 0);
   const dates = new Date(year, month, 0).getDate() - saturdays - sundays;
 
-  switch (type) {
+  switch (salaryTypeCalc) {
     case "contract": {
-      if (!contracts) return base + (allowance ?? 0);
+      const list: { base: number; percentage: number }[] = [];
 
-      let sum = base + (allowance ?? 0);
+      if (!contracts) {
+        return {
+          ...rest,
+          salaryBase,
+          salaryType: "contract",
+          salaryTypeName: salaryType,
+          info: { salaries: list },
+          salaryAllowance,
+          salaryCalc: salaryBase + salaryAllowance,
+        };
+      }
+
+      let sum = salaryBase + salaryAllowance;
       const { length: lengthArray } = contracts;
       for (let index = 0; index < lengthArray; index++) {
         const { salaries } = contracts[index];
+        list.push(...salaries);
 
         const { length: lengthList } = salaries;
         for (let index = 0; index < lengthList; index++) {
@@ -54,15 +58,36 @@ function salaryTypeCalculator({
         }
       }
 
-      return Math.ceil(sum / 1000) * 1000;
+      return {
+        ...rest,
+        salaryBase,
+        salaryType: "contract",
+        salaryTypeName: salaryType,
+        info: { salaries: list },
+        salaryAllowance,
+        salaryCalc: Math.ceil(sum / 1000) * 1000,
+      };
     }
     case "product": {
-      if (!products) return base + (allowance ?? 0);
+      const list: { base: number; quantity: number }[] = [];
 
-      let sum = base + (allowance ?? 0);
+      if (!products) {
+        return {
+          ...rest,
+          salaryBase,
+          salaryType: "product",
+          salaryTypeName: salaryType,
+          info: { salaries: list },
+          salaryAllowance,
+          salaryCalc: salaryBase + salaryAllowance,
+        };
+      }
+
+      let sum = salaryBase + salaryAllowance;
       const { length: lengthArray } = products;
       for (let index = 0; index < lengthArray; index++) {
         const { salaries } = products[index];
+        list.push(...salaries);
 
         const { length: lengthList } = salaries;
         for (let index = 0; index < lengthList; index++) {
@@ -71,15 +96,36 @@ function salaryTypeCalculator({
         }
       }
 
-      return Math.ceil(sum / 1000) * 1000;
+      return {
+        ...rest,
+        salaryBase,
+        salaryType: "product",
+        salaryTypeName: salaryType,
+        info: { salaries: list },
+        salaryAllowance,
+        salaryCalc: Math.ceil(sum / 1000) * 1000,
+      };
     }
     case "revenue": {
-      if (!revenues) return base + (allowance ?? 0);
+      const list: { revenue: number; percentage: number }[] = [];
 
-      let sum = base + (allowance ?? 0);
+      if (!revenues) {
+        return {
+          ...rest,
+          salaryBase,
+          salaryType: "revenue",
+          salaryTypeName: salaryType,
+          info: { salaries: list },
+          salaryAllowance,
+          salaryCalc: salaryBase + salaryAllowance,
+        };
+      }
+
+      let sum = salaryBase + salaryAllowance;
       const { length: lengthArray } = revenues;
       for (let index = 0; index < lengthArray; index++) {
         const { salaries } = revenues[index];
+        list.push(...salaries);
 
         const { length: lengthList } = salaries;
         for (let index = 0; index < lengthList; index++) {
@@ -88,14 +134,31 @@ function salaryTypeCalculator({
         }
       }
 
-      return Math.ceil(sum / 1000) * 1000;
+      return {
+        ...rest,
+        salaryBase,
+        salaryType: "revenue",
+        salaryTypeName: salaryType,
+        info: { salaries: list },
+        salaryAllowance,
+        salaryCalc: Math.ceil(sum / 1000) * 1000,
+      };
     }
     case "time":
-    default:
-      return (
-        Math.ceil((((base + (allowance ?? 0)) / dates) * days.length) / 1000) *
-        1000
-      );
+    default: {
+      return {
+        ...rest,
+        salaryBase,
+        salaryType: "time",
+        salaryTypeName: salaryType,
+        info: { days },
+        salaryAllowance,
+        salaryCalc:
+          Math.ceil(
+            (((salaryBase + salaryAllowance) / dates) * days.length) / 1000
+          ) * 1000,
+      };
+    }
   }
 }
 
@@ -134,7 +197,7 @@ export default class calculatorController {
               },
               {
                 $addFields: {
-                  stt: {
+                  id: {
                     $let: {
                       vars: { props: { $first: "$personnel" } },
                       in: "$$props.id",
@@ -291,21 +354,9 @@ export default class calculatorController {
 
       const { length } = array;
       for (let index = 0; index < length; index++) {
-        const { days, salaryTypeCalc, ...rest } = array[index];
-
-        list.data.push({
-          ...rest,
-          salaryCalc: salaryTypeCalculator({
-            type: salaryTypeCalc,
-            base: rest.salaryBase,
-            allowance: rest.salaryAllowance,
-            days,
-            month,
-            year,
-          }),
-          salaryBonus: 0,
-        });
+        list.data.push(salaryTypeCalculator({ ...array[index], month, year }));
       }
+
       res.json(list);
     } else {
       res.json(null);
