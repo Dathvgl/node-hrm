@@ -96,7 +96,7 @@ export default class VacationController {
 
   async putVacationStatus(req: Request, res: Response) {
     const { id } = req.params;
-    const { status } = req.query as { status: VacationStatusType };
+    const { status } = req.body as { status: VacationStatusType };
 
     const data = (await vacationCollection.findOneAndUpdate(
       { _id: new ObjectId(id) },

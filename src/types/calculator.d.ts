@@ -10,6 +10,7 @@ export type CalculatorSalaryBase = {
   salaryAllowance?: number;
   salaryTypeName: string;
   salaryCalc: number;
+  vacations?: string[];
   salaryBonus?: number;
 };
 

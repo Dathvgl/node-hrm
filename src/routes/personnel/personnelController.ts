@@ -297,7 +297,7 @@ export default class PersonnelController {
     const { company } = req.body as { company: string };
 
     const data = (await personnelCollection.findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { id },
       { $set: { company } },
       { returnDocument: "after" }
     )) as (BaseMongo & Omit<PersonnelType, "id">) | null;
@@ -314,7 +314,7 @@ export default class PersonnelController {
     const { roles } = req.body as { roles: string[] };
 
     const data = (await personnelCollection.findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { id },
       { $set: { roles } },
       { returnDocument: "after" }
     )) as (BaseMongo & Omit<PersonnelType, "id">) | null;

@@ -23,6 +23,7 @@ function salaryTypeCalculator({
   salaryAllowance = 0,
   salaryBase,
   salaryTypeCalc,
+  vacations,
   ...rest
 }: SalaryTypeCalcProps): CalculatorSalaryType {
   const saturdays = dayOfWeek(year, month, 6);
@@ -36,6 +37,7 @@ function salaryTypeCalculator({
       if (!contracts) {
         return {
           ...rest,
+          vacations,
           salaryBase,
           salaryType: "contract",
           salaryTypeName: salaryType,
@@ -60,6 +62,7 @@ function salaryTypeCalculator({
 
       return {
         ...rest,
+        vacations,
         salaryBase,
         salaryType: "contract",
         salaryTypeName: salaryType,
@@ -74,6 +77,7 @@ function salaryTypeCalculator({
       if (!products) {
         return {
           ...rest,
+          vacations,
           salaryBase,
           salaryType: "product",
           salaryTypeName: salaryType,
@@ -98,6 +102,7 @@ function salaryTypeCalculator({
 
       return {
         ...rest,
+        vacations,
         salaryBase,
         salaryType: "product",
         salaryTypeName: salaryType,
@@ -112,6 +117,7 @@ function salaryTypeCalculator({
       if (!revenues) {
         return {
           ...rest,
+          vacations,
           salaryBase,
           salaryType: "revenue",
           salaryTypeName: salaryType,
@@ -136,6 +142,7 @@ function salaryTypeCalculator({
 
       return {
         ...rest,
+        vacations,
         salaryBase,
         salaryType: "revenue",
         salaryTypeName: salaryType,
@@ -148,6 +155,7 @@ function salaryTypeCalculator({
     default: {
       return {
         ...rest,
+        vacations,
         salaryBase,
         salaryType: "time",
         salaryTypeName: salaryType,
@@ -155,7 +163,9 @@ function salaryTypeCalculator({
         salaryAllowance,
         salaryCalc:
           Math.ceil(
-            (((salaryBase + salaryAllowance) / dates) * days.length) / 1000
+            (((salaryBase + salaryAllowance) / dates) *
+              (days.length + (vacations?.length ?? 0))) /
+              1000
           ) * 1000,
       };
     }
@@ -169,6 +179,7 @@ export default class calculatorController {
       year?: string;
       page?: string;
       limit?: string;
+      department?: string;
     };
 
     const today = new Date();
@@ -178,153 +189,193 @@ export default class calculatorController {
     const page: number = Number.parseInt(query.page ?? "1");
     const limit: number = Number.parseInt(query.limit ?? "10");
 
+    const departmentHandle = () => {
+      const list: any[] = [
+        {
+          $addFields: {
+            department: {
+              $let: {
+                vars: { props: { $first: "$personnel" } },
+                in: "$$props.department",
+              },
+            },
+          },
+        },
+      ];
+
+      if (query.department && query.department != "all") {
+        list.push({
+          $match: { department: query.department },
+        });
+      }
+
+      return list;
+    };
+
     const data = await timesheetCollection
       .aggregate<ListResult<CalculatorSalaryAggregateType>>([
+        { $match: { month, year } },
+        { $project: { _id: 0, personnel: 1, days: 1 } },
+        {
+          $lookup: {
+            from: "personnel",
+            localField: "personnel",
+            foreignField: "id",
+            as: "personnel",
+          },
+        },
+        {
+          $addFields: {
+            id: {
+              $let: {
+                vars: { props: { $first: "$personnel" } },
+                in: "$$props.id",
+              },
+            },
+          },
+        },
+        {
+          $addFields: {
+            stt: {
+              $let: {
+                vars: { props: { $first: "$personnel" } },
+                in: "$$props.stt",
+              },
+            },
+          },
+        },
+        {
+          $addFields: {
+            name: {
+              $let: {
+                vars: { props: { $first: "$personnel" } },
+                in: "$$props.name",
+              },
+            },
+          },
+        },
+        {
+          $addFields: {
+            position: {
+              $let: {
+                vars: { props: { $first: "$personnel" } },
+                in: "$$props.position",
+              },
+            },
+          },
+        },
+        ...departmentHandle(),
+        ...fieldLookup({
+          document: "department",
+          as: "salaryType",
+          inField: "salary",
+          project: { $project: { _id: 0, salary: 1 } },
+        }),
+        ...fieldLookup({
+          document: "salary",
+          field: "salaryType",
+          as: "salaryTypeCalc",
+          inField: "type",
+          project: { $project: { _id: 0, type: 1 } },
+        }),
+        ...fieldLookup({
+          document: "salary",
+          field: "salaryType",
+          as: "salaryType",
+          inField: "name",
+          project: { $project: { _id: 0, name: 1 } },
+        }),
+        ...fieldLookup({
+          document: "department",
+          inField: "name",
+          project: { $project: { _id: 0, name: 1 } },
+        }),
+        ...fieldLookup({
+          document: "position",
+          as: "salaryBase",
+          inField: "salary",
+          project: { $project: { _id: 0, salary: 1 } },
+        }),
+        ...fieldLookup({
+          document: "position",
+          as: "salaryAllowance",
+          inField: "allowance",
+          project: { $project: { _id: 0, allowance: 1 } },
+        }),
+        ...fieldLookup({
+          document: "position",
+          inField: "name",
+          project: { $project: { _id: 0, name: 1 } },
+        }),
+        {
+          $lookup: {
+            from: "salaryRevenue",
+            localField: "id",
+            foreignField: "personnel",
+            pipeline: [
+              { $match: { year, month } },
+              { $project: { _id: 0, salaries: 1 } },
+            ],
+            as: "revenues",
+          },
+        },
+        {
+          $lookup: {
+            from: "salaryContract",
+            localField: "id",
+            foreignField: "personnel",
+            pipeline: [
+              { $match: { year, month } },
+              { $project: { _id: 0, salaries: 1 } },
+            ],
+            as: "contracts",
+          },
+        },
+        {
+          $lookup: {
+            from: "salaryProduct",
+            localField: "id",
+            foreignField: "personnel",
+            pipeline: [
+              { $match: { year, month } },
+              { $project: { _id: 0, salaries: 1 } },
+            ],
+            as: "products",
+          },
+        },
+        { $project: { personnel: 0 } },
+        {
+          $lookup: {
+            from: "vacation",
+            localField: "id",
+            foreignField: "personnel",
+            pipeline: [
+              { $match: { status: "accept" } },
+              { $project: { _id: 0, offDays: 1 } },
+              {
+                $match: {
+                  offDays: {
+                    $regex: `${month < 10 ? `0${month}` : month}/${year}`,
+                  },
+                },
+              },
+            ],
+            as: "vacations",
+          },
+        },
+        {
+          $addFields: {
+            vacations: {
+              $let: {
+                vars: { props: { $first: "$vacations" } },
+                in: "$$props.offDays",
+              },
+            },
+          },
+        },
         {
           $facet: {
-            data: [
-              { $skip: (page - 1) * limit },
-              { $limit: limit },
-              { $match: { month, year } },
-              { $project: { _id: 0, personnel: 1, days: 1 } },
-              {
-                $lookup: {
-                  from: "personnel",
-                  localField: "personnel",
-                  foreignField: "id",
-                  as: "personnel",
-                },
-              },
-              {
-                $addFields: {
-                  id: {
-                    $let: {
-                      vars: { props: { $first: "$personnel" } },
-                      in: "$$props.id",
-                    },
-                  },
-                },
-              },
-              {
-                $addFields: {
-                  stt: {
-                    $let: {
-                      vars: { props: { $first: "$personnel" } },
-                      in: "$$props.stt",
-                    },
-                  },
-                },
-              },
-              {
-                $addFields: {
-                  name: {
-                    $let: {
-                      vars: { props: { $first: "$personnel" } },
-                      in: "$$props.name",
-                    },
-                  },
-                },
-              },
-              {
-                $addFields: {
-                  position: {
-                    $let: {
-                      vars: { props: { $first: "$personnel" } },
-                      in: "$$props.position",
-                    },
-                  },
-                },
-              },
-              {
-                $addFields: {
-                  department: {
-                    $let: {
-                      vars: { props: { $first: "$personnel" } },
-                      in: "$$props.department",
-                    },
-                  },
-                },
-              },
-              ...fieldLookup({
-                document: "department",
-                as: "salaryType",
-                inField: "salary",
-                project: { $project: { _id: 0, salary: 1 } },
-              }),
-              ...fieldLookup({
-                document: "salary",
-                field: "salaryType",
-                as: "salaryTypeCalc",
-                inField: "type",
-                project: { $project: { _id: 0, type: 1 } },
-              }),
-              ...fieldLookup({
-                document: "salary",
-                field: "salaryType",
-                as: "salaryType",
-                inField: "name",
-                project: { $project: { _id: 0, name: 1 } },
-              }),
-              ...fieldLookup({
-                document: "department",
-                inField: "name",
-                project: { $project: { _id: 0, name: 1 } },
-              }),
-              ...fieldLookup({
-                document: "position",
-                as: "salaryBase",
-                inField: "salary",
-                project: { $project: { _id: 0, salary: 1 } },
-              }),
-              ...fieldLookup({
-                document: "position",
-                as: "salaryAllowance",
-                inField: "allowance",
-                project: { $project: { _id: 0, allowance: 1 } },
-              }),
-              ...fieldLookup({
-                document: "position",
-                inField: "name",
-                project: { $project: { _id: 0, name: 1 } },
-              }),
-              {
-                $lookup: {
-                  from: "salaryRevenue",
-                  localField: "id",
-                  foreignField: "personnel",
-                  pipeline: [
-                    { $match: { year, month } },
-                    { $project: { _id: 0, salaries: 1 } },
-                  ],
-                  as: "revenues",
-                },
-              },
-              {
-                $lookup: {
-                  from: "salaryContract",
-                  localField: "id",
-                  foreignField: "personnel",
-                  pipeline: [
-                    { $match: { year, month } },
-                    { $project: { _id: 0, salaries: 1 } },
-                  ],
-                  as: "contracts",
-                },
-              },
-              {
-                $lookup: {
-                  from: "salaryProduct",
-                  localField: "id",
-                  foreignField: "personnel",
-                  pipeline: [
-                    { $match: { year, month } },
-                    { $project: { _id: 0, salaries: 1 } },
-                  ],
-                  as: "products",
-                },
-              },
-              { $project: { personnel: 0 } },
-            ],
+            data: [{ $skip: (page - 1) * limit }, { $limit: limit }],
             totalPage: [{ $count: "total" }],
           },
         },
