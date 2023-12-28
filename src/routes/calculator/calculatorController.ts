@@ -180,6 +180,7 @@ export default class calculatorController {
       page?: string;
       limit?: string;
       department?: string;
+      company?: string;
     };
 
     const today = new Date();
@@ -208,6 +209,32 @@ export default class calculatorController {
           $match: { department: query.department },
         });
       }
+
+      return list;
+    };
+
+    const personnelCompanyHandle = () => {
+      const list: any[] = [
+        {
+          $addFields: {
+            company: {
+              $let: {
+                vars: { props: { $first: "$personnel" } },
+                in: "$$props.company",
+              },
+            },
+          },
+        },
+        { $match: { company: /^(?!\s*$).+/ } },
+      ];
+
+      if (query.company && query.company != "all") {
+        list.push({
+          $match: { company: query.company },
+        });
+      }
+
+      list.push({ $project: { company: 0 } });
 
       return list;
     };
@@ -264,6 +291,7 @@ export default class calculatorController {
             },
           },
         },
+        ...personnelCompanyHandle(),
         ...departmentHandle(),
         ...fieldLookup({
           document: "department",

@@ -216,6 +216,7 @@ export default class PersonnelController {
             email: 1,
             department: 1,
             position: 1,
+            company: 1,
           },
         },
         ...fieldLookup({
