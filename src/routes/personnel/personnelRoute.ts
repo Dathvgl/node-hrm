@@ -12,6 +12,6 @@ personnelRouter.get("/", tryCatch(personnelController.getPersonnels));
 personnelRouter.post("/", tryCatch(personnelController.postPersonnel));
 personnelRouter.put("/company/:id", tryCatch(personnelController.putPersonnelCompany));
 personnelRouter.put("/role/:id", tryCatch(personnelController.putPersonnelRoles));
-personnelRouter.delete("/:id", tryCatch(personnelController.postPersonnel));
+personnelRouter.delete("/:id", tryCatch(personnelController.deletePersonnel));
 
 export default personnelRouter;

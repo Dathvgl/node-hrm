@@ -1,7 +1,15 @@
 import { Request, Response } from "express";
 import { CustomError } from "models/errror";
 import { authFB } from "models/firebase/firebaseConfig";
-import { fieldLookup, personnelCollection } from "models/mongo";
+import {
+  fieldLookup,
+  personnelCollection,
+  salaryContractCollection,
+  salaryProductCollection,
+  salaryRevenueCollection,
+  timesheetCollection,
+  vacationCollection,
+} from "models/mongo";
 import { ObjectId } from "mongodb";
 import { ListResult } from "types/base";
 import { BaseMongo } from "types/mongo";
@@ -329,10 +337,16 @@ export default class PersonnelController {
   async deletePersonnel(req: Request, res: Response) {
     const { id } = req.params;
 
+    await salaryRevenueCollection.deleteMany({ personnel: id });
+    await salaryContractCollection.deleteMany({ personnel: id });
+    await salaryProductCollection.deleteMany({ personnel: id });
+    await vacationCollection.deleteMany({ personnel: id });
+    await timesheetCollection.deleteMany({ personnel: id });
+
     await authFB.deleteUser(id);
 
     const data = (await personnelCollection.findOneAndDelete({
-      _id: new ObjectId(id),
+      id,
     })) as (BaseMongo & Omit<PersonnelType, "id">) | null;
 
     if (!data) {
