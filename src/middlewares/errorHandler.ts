@@ -1,7 +1,7 @@
 import { AxiosError } from "axios";
 import { NextFunction, Request, Response } from "express";
 
-function errorHandler(
+export default function errorHandler(
   error: unknown,
   req: Request,
   res: Response,
@@ -11,5 +11,3 @@ function errorHandler(
     res.status(error.response?.status ?? 400).json(error.response?.data);
   } else res.status(400).json({ message: "Error handler", error });
 }
-
-export default errorHandler;
