@@ -9,6 +9,13 @@ Hiện tại, dự án đang trong giai đoạn phát triển và có nhiều th
 - TryCatch (bắt lỗi route cho ErrorHandler)
 - RoleHandler (phân quyền route)
 
+## Hướng Dẫn Cài Đặt
+1. Clone dự án từ GitHub.
+   - Code / Tải xuống
+   - `git clone https://github.com/Dathvgl/node-hrm`
+2. Cài đặt các dependencies bằng lệnh `npm install` hoặc `npm install --force`.
+3. Chạy ứng dụng với lệnh `npm start` hoặc `npm run dev`.
+
 ### Role
 ```json
 {
